@@ -2,43 +2,43 @@ FROM ubuntu:bionic
 LABEL maintainer Brady Wetherington <uberbrady@gmail.com>
 
 RUN export DEBIAN_FRONTEND=noninteractive; \
-    export DEBCONF_NONINTERACTIVE_SEEN=true; \
-    echo 'tzdata tzdata/Areas select Etc' | debconf-set-selections; \
-    echo 'tzdata tzdata/Zones/Etc select UTC' | debconf-set-selections; \
-    apt-get update -qqy \
- && apt-get install -qqy --no-install-recommends \
-apt-utils \
-apache2 \
-apache2-bin \
-libapache2-mod-php7.2 \
-php7.2-curl \
-php7.2-ldap \
-php7.2-mysql \
-php7.2-gd \
-php7.2-xml \
-php7.2-mbstring \
-php7.2-zip \
-php7.2-bcmath \
-patch \
-curl \
-wget  \
-vim \
-git \
-cron \
-mysql-client \
-supervisor \
-cron \
-gcc \
-make \
-autoconf \
-libc-dev \
-pkg-config \
-libmcrypt-dev \
-php7.2-dev \
-ca-certificates \
-unzip \
-&& apt-get clean \
-&& rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+      export DEBCONF_NONINTERACTIVE_SEEN=true; \
+      echo 'tzdata tzdata/Areas select Etc' | debconf-set-selections; \
+      echo 'tzdata tzdata/Zones/Etc select UTC' | debconf-set-selections; \
+      apt-get update -qqy \
+      && apt-get install -qqy --no-install-recommends \
+      apt-utils \
+      apache2 \
+      apache2-bin \
+      libapache2-mod-php7.2 \
+      php7.2-curl \
+      php7.2-ldap \
+      php7.2-mysql \
+      php7.2-gd \
+      php7.2-xml \
+      php7.2-mbstring \
+      php7.2-zip \
+      php7.2-bcmath \
+      patch \
+      curl \
+      wget  \
+      vim \
+      git \
+      cron \
+      mysql-client \
+      supervisor \
+      cron \
+      gcc \
+      make \
+      autoconf \
+      libc-dev \
+      pkg-config \
+      libmcrypt-dev \
+      php7.2-dev \
+      ca-certificates \
+      unzip \
+      && apt-get clean \
+      && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 
 RUN curl -L -O https://github.com/pear/pearweb_phars/raw/master/go-pear.phar
@@ -71,7 +71,7 @@ COPY docker/docker.env /var/www/html/.env
 RUN chown -R docker /var/www/html
 
 RUN \
-	rm -r "/var/www/html/storage/private_uploads" && ln -fs "/var/lib/snipeit/data/private_uploads" "/var/www/html/storage/private_uploads" \
+      rm -r "/var/www/html/storage/private_uploads" && ln -fs "/var/lib/snipeit/data/private_uploads" "/var/www/html/storage/private_uploads" \
       && rm -rf "/var/www/html/public/uploads" && ln -fs "/var/lib/snipeit/data/uploads" "/var/www/html/public/uploads" \
       && rm -r "/var/www/html/storage/app/backups" && ln -fs "/var/lib/snipeit/dumps" "/var/www/html/storage/app/backups" \
       && mkdir -p "/var/lib/snipeit/keys" && ln -fs "/var/lib/snipeit/keys/oauth-private.key" "/var/www/html/storage/oauth-private.key" \
@@ -81,9 +81,8 @@ RUN \
       && echo "Finished setting up application in /var/www/html"
 
 RUN \
-        echo "Listen 8080" >> /etc/apache2/ports.conf && \
-        chown -R www-data:www-data /var/www/ && \
-        a2enmod rewrite
+      echo "Listen 8080" >> /etc/apache2/ports.conf && \
+      a2enmod rewrite
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 USER docker
