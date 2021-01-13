@@ -79,6 +79,10 @@ RUN \
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 RUN a2enmod rewrite
 
+COPY build/wait-for.sh /bin/wait-for.sh
+RUN chmod +x /bin/wait-for.sh
+
+
 EXPOSE 8080
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN composer install --no-dev --working-dir=/var/www/html
