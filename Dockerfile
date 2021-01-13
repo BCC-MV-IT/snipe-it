@@ -79,6 +79,12 @@ RUN \
       && chown docker "/var/lib/snipeit/keys/" \
       && chmod +x /var/www/html/artisan \
       && echo "Finished setting up application in /var/www/html"
+
+RUN chmod 777 -R /var/www/storage/ && \
+        echo "Listen 8080" >> /etc/apache2/ports.conf && \
+        chown -R www-data:www-data /var/www/ && \
+        a2enmod rewrite
+
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 USER docker
 RUN composer install --no-dev --working-dir=/var/www/html
@@ -91,7 +97,3 @@ COPY docker/supervisor-exit-event-listener /usr/bin/supervisor-exit-event-listen
 RUN chmod +x /startup.sh /usr/bin/supervisor-exit-event-listener
 
 CMD ["/startup.sh"]
-RUN chmod 777 -R /var/www/storage/ && \
-        echo "Listen 8080" >> /etc/apache2/ports.conf && \
-        chown -R www-data:www-data /var/www/ && \
-        a2enmod rewrite
