@@ -1,23 +1,88 @@
+FROM ubuntu:bionic
+LABEL maintainer Brady Wetherington <uberbrady@gmail.com>
+
+RUN export DEBIAN_FRONTEND=noninteractive; \
+    export DEBCONF_NONINTERACTIVE_SEEN=true; \
+    echo 'tzdata tzdata/Areas select Etc' | debconf-set-selections; \
+    echo 'tzdata tzdata/Zones/Etc select UTC' | debconf-set-selections; \
+    apt-get update -qqy \
+ && apt-get install -qqy --no-install-recommends \
+apt-utils \
+apache2 \
+apache2-bin \
+libapache2-mod-php7.2 \
+php7.2-curl \
+php7.2-ldap \
+php7.2-gd \
+php7.2-xml \
+php7.2-mbstring \
+php7.2-zip \
+php7.2-bcmath \
+patch \
+curl \
+wget  \
+vim \
+git \
+cron \
+supervisor \
+cron \
+gcc \
+make \
+autoconf \
+libc-dev \
+pkg-config \
+libmcrypt-dev \
+php7.2-dev \
+unzip \
+&& apt-get clean \
+&& rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+
+RUN curl -L -O https://github.com/pear/pearweb_phars/raw/master/go-pear.phar
+RUN php go-pear.phar
+
+RUN pecl install mcrypt-1.0.2
+
+RUN bash -c "echo extension=/usr/lib/php/20170718/mcrypt.so > /etc/php/7.2/mods-available/mcrypt.ini"
+
+RUN phpenmod mcrypt
+RUN phpenmod gd
+RUN phpenmod bcmath
+
+RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/7.2/apache2/php.ini
+RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/7.2/cli/php.ini
+
+RUN useradd -m --uid 1000 --gid 50 docker
+
+RUN echo export APACHE_RUN_USER=docker >> /etc/apache2/envvars
+RUN echo export APACHE_RUN_GROUP=staff >> /etc/apache2/envvars
+
+
+RUN \
+	rm -r "/var/www/html/storage/private_uploads" && ln -fs "/var/lib/snipeit/data/private_uploads" "/var/www/html/storage/private_uploads" \
+      && rm -rf "/var/www/html/public/uploads" && ln -fs "/var/lib/snipeit/data/uploads" "/var/www/html/public/uploads" \
+      && rm -r "/var/www/html/storage/app/backups" && ln -fs "/var/lib/snipeit/dumps" "/var/www/html/storage/app/backups" \
+      && mkdir -p "/var/lib/snipeit/keys" && ln -fs "/var/lib/snipeit/keys/oauth-private.key" "/var/www/html/storage/oauth-private.key" \
+      && ln -fs "/var/lib/snipeit/keys/oauth-public.key" "/var/www/html/storage/oauth-public.key" \
+      && chown docker "/var/lib/snipeit/keys/" \
+      && chmod +x /var/www/html/artisan \
+      && echo "Finished setting up application in /var/www/html"
+
+############## DEPENDENCIES via COMPOSER ###################
+
 FROM composer:1.9.0 as build
 WORKDIR /app
 COPY . /app
 RUN composer global require hirak/prestissimo && composer install
 
-VOLUME ["/var/lib/snipeit"]
-
-FROM php:7.3-apache-stretch
-RUN docker-php-ext-install pdo pdo_mysql
-
 EXPOSE 8080
-COPY --from=build /app /var/www/
-COPY build/000-default.conf /etc/apache2/sites-available/000-default.conf
-COPY .env.production /var/www/.env
-COPY effortless-edge-296714-56c9d64859f6.json /var/www/effortless-edge-296714-56c9d64859f6.json
+COPY docker/000-default.conf /etc/apache2/sites-enabled/000-default.conf
+COPY docker/docker.env /var/www/html/.env
 RUN chmod 777 -R /var/www/storage/ && \
         echo "Listen 8080" >> /etc/apache2/ports.conf && \
         chown -R www-data:www-data /var/www/ && \
         a2enmod rewrite
-	
+
 COPY docker/startup.sh docker/supervisord.conf /
 COPY docker/supervisor-exit-event-listener /usr/bin/supervisor-exit-event-listener
 RUN chmod +x /startup.sh /usr/bin/supervisor-exit-event-listener
