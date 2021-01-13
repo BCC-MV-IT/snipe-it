@@ -13,6 +13,7 @@ apache2-bin \
 libapache2-mod-php7.2 \
 php7.2-curl \
 php7.2-ldap \
+php7.2-mysql \
 php7.2-gd \
 php7.2-xml \
 php7.2-mbstring \
@@ -24,6 +25,7 @@ wget  \
 vim \
 git \
 cron \
+mysql-client \
 supervisor \
 cron \
 gcc \
@@ -58,11 +60,15 @@ RUN useradd -m --uid 1000 --gid 50 docker
 RUN echo export APACHE_RUN_USER=docker >> /etc/apache2/envvars
 RUN echo export APACHE_RUN_GROUP=staff >> /etc/apache2/envvars
 
+COPY docker/000-default.conf /etc/apache2/sites-enabled/000-default.conf
+RUN mkdir -p /var/lib/snipeit/ss
 
-FROM composer:1.9.0 as build
-WORKDIR /app
-COPY . /app
-RUN composer global require hirak/prestissimo && composer install
+COPY . /var/www/html
+
+WORKDIR /var/www/html
+COPY docker/docker.env /var/www/html/.env
+
+RUN chown -R docker /var/www/html
 
 RUN \
 	rm -r "/var/www/html/storage/private_uploads" && ln -fs "/var/lib/snipeit/data/private_uploads" "/var/www/html/storage/private_uploads" \
@@ -73,17 +79,19 @@ RUN \
       && chown docker "/var/lib/snipeit/keys/" \
       && chmod +x /var/www/html/artisan \
       && echo "Finished setting up application in /var/www/html"
-      
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+USER docker
+RUN composer install --no-dev --working-dir=/var/www/html
+USER root
 EXPOSE 8080
-COPY docker/000-default.conf /etc/apache2/sites-enabled/000-default.conf
-COPY docker/docker.env /var/www/html/.env
-RUN chmod 777 -R /var/www/storage/ && \
-        echo "Listen 8080" >> /etc/apache2/ports.conf && \
-        chown -R www-data:www-data /var/www/ && \
-        a2enmod rewrite
+VOLUME ["/var/lib/snipeit"]
 
 COPY docker/startup.sh docker/supervisord.conf /
 COPY docker/supervisor-exit-event-listener /usr/bin/supervisor-exit-event-listener
 RUN chmod +x /startup.sh /usr/bin/supervisor-exit-event-listener
 
 CMD ["/startup.sh"]
+RUN chmod 777 -R /var/www/storage/ && \
+        echo "Listen 8080" >> /etc/apache2/ports.conf && \
+        chown -R www-data:www-data /var/www/ && \
+        a2enmod rewrite
