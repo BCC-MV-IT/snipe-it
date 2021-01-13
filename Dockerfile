@@ -33,6 +33,7 @@ libc-dev \
 pkg-config \
 libmcrypt-dev \
 php7.2-dev \
+ca-certificates \
 unzip \
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
