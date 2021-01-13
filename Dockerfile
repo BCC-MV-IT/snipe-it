@@ -59,6 +59,11 @@ RUN echo export APACHE_RUN_USER=docker >> /etc/apache2/envvars
 RUN echo export APACHE_RUN_GROUP=staff >> /etc/apache2/envvars
 
 
+FROM composer:1.9.0 as build
+WORKDIR /app
+COPY . /app
+RUN composer global require hirak/prestissimo && composer install
+
 RUN \
 	rm -r "/var/www/html/storage/private_uploads" && ln -fs "/var/lib/snipeit/data/private_uploads" "/var/www/html/storage/private_uploads" \
       && rm -rf "/var/www/html/public/uploads" && ln -fs "/var/lib/snipeit/data/uploads" "/var/www/html/public/uploads" \
@@ -68,14 +73,7 @@ RUN \
       && chown docker "/var/lib/snipeit/keys/" \
       && chmod +x /var/www/html/artisan \
       && echo "Finished setting up application in /var/www/html"
-
-############## DEPENDENCIES via COMPOSER ###################
-
-FROM composer:1.9.0 as build
-WORKDIR /app
-COPY . /app
-RUN composer global require hirak/prestissimo && composer install
-
+      
 EXPOSE 8080
 COPY docker/000-default.conf /etc/apache2/sites-enabled/000-default.conf
 COPY docker/docker.env /var/www/html/.env
