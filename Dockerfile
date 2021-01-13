@@ -1,95 +1,82 @@
-FROM ubuntu:bionic
-LABEL maintainer Brady Wetherington <uberbrady@gmail.com>
+FROM alpine:3.12
+# Apache + PHP
+RUN  apk add --update --no-cache \
+        apache2 \
+        php7 \
+        php7-common \
+        php7-apache2 \
+        php7-curl \
+        php7-ldap \
+        php7-mysqli \
+        php7-gd \
+        php7-xml \
+        php7-mbstring \
+        php7-zip \
+        php7-ctype \
+        php7-tokenizer \
+        php7-pdo_mysql \
+        php7-openssl \
+        php7-bcmath \
+        php7-phar \
+        php7-json \
+        php7-iconv \
+        php7-fileinfo \
+        php7-simplexml \
+        php7-session \
+        php7-dom \
+        php7-xmlwriter \
+        curl \
+        wget \
+        vim \
+        git \
+        mysql-client \
+        tini
 
-RUN export DEBIAN_FRONTEND=noninteractive; \
-      export DEBCONF_NONINTERACTIVE_SEEN=true; \
-      echo 'tzdata tzdata/Areas select Etc' | debconf-set-selections; \
-      echo 'tzdata tzdata/Zones/Etc select UTC' | debconf-set-selections; \
-      apt-get update -qqy \
-      && apt-get install -qqy --no-install-recommends \
-      apt-utils \
-      apache2 \
-      apache2-bin \
-      libapache2-mod-php7.2 \
-      php7.2-curl \
-      php7.2-ldap \
-      php7.2-mysql \
-      php7.2-gd \
-      php7.2-xml \
-      php7.2-mbstring \
-      php7.2-zip \
-      php7.2-bcmath \
-      patch \
-      curl \
-      wget  \
-      vim \
-      git \
-      cron \
-      mysql-client \
-      supervisor \
-      cron \
-      gcc \
-      make \
-      autoconf \
-      libc-dev \
-      pkg-config \
-      libmcrypt-dev \
-      php7.2-dev \
-      ca-certificates \
-      unzip \
-      && apt-get clean \
-      && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# Where apache's PID lives
+RUN mkdir -p /run/apache2 && chown apache:apache /run/apache2
 
+RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php7/php.ini
+COPY  docker/000-default-2.4.conf /etc/apache2/conf.d/default.conf
 
-RUN curl -L -O https://github.com/pear/pearweb_phars/raw/master/go-pear.phar
-RUN php go-pear.phar
-
-RUN pecl install mcrypt-1.0.2
-
-RUN bash -c "echo extension=/usr/lib/php/20170718/mcrypt.so > /etc/php/7.2/mods-available/mcrypt.ini"
-
-RUN phpenmod mcrypt
-RUN phpenmod gd
-RUN phpenmod bcmath
-
-RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/7.2/apache2/php.ini
-RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/7.2/cli/php.ini
-
-
-COPY docker/000-default.conf /etc/apache2/sites-enabled/000-default.conf
-RUN mkdir -p /var/lib/snipeit/ss
+# Enable mod_rewrite
+RUN sed -i '/LoadModule rewrite_module/s/^#//g' /etc/apache2/httpd.conf
 
 COPY . /var/www/html
 
 WORKDIR /var/www/html
+
 COPY docker/docker.env /var/www/html/.env
 
-RUN chown -R www-data:www-data /var/www/html
+RUN chown -R apache:apache /var/www/html
 
 RUN \
-      rm -r "/var/www/html/storage/private_uploads" && ln -fs "/var/lib/snipeit/data/private_uploads" "/var/www/html/storage/private_uploads" \
-      && rm -rf "/var/www/html/public/uploads" && ln -fs "/var/lib/snipeit/data/uploads" "/var/www/html/public/uploads" \
-      && rm -r "/var/www/html/storage/app/backups" && ln -fs "/var/lib/snipeit/dumps" "/var/www/html/storage/app/backups" \
-      && mkdir -p "/var/lib/snipeit/keys" && ln -fs "/var/lib/snipeit/keys/oauth-private.key" "/var/www/html/storage/oauth-private.key" \
-      && ln -fs "/var/lib/snipeit/keys/oauth-public.key" "/var/www/html/storage/oauth-public.key" \
-      && chown www-data:www-data "/var/lib/snipeit/keys/" \
-      && chmod +x /var/www/html/artisan \
-      && echo "Finished setting up application in /var/www/html"
+	rm -r "/var/www/html/storage/private_uploads" \
+	&& mkdir -p "/var/lib/snipeit/data/private_uploads" && ln -fs "/var/lib/snipeit/data/private_uploads" "/var/www/html/storage/private_uploads" \
+    && rm -rf "/var/www/html/public/uploads" \
+    && mkdir -p "/var/lib/snipeit/data/uploads" && ln -fs "/var/lib/snipeit/data/uploads" "/var/www/html/public/uploads" \
+    && mkdir -p "/var/lib/snipeit/dumps" && rm -r "/var/www/html/storage/app/backups" && ln -fs "/var/lib/snipeit/dumps" "/var/www/html/storage/app/backups" \
+    && mkdir -p "/var/lib/snipeit/keys" && ln -fs "/var/lib/snipeit/keys/oauth-private.key" "/var/www/html/storage/oauth-private.key" \
+    && ln -fs "/var/lib/snipeit/keys/oauth-public.key" "/var/www/html/storage/oauth-public.key" \
+    && chown -R apache "/var/lib/snipeit"
 
-RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
-RUN a2enmod rewrite
-
-COPY docker/wait-for.sh /bin/wait-for.sh
-RUN chmod +x /bin/wait-for.sh
-
-
-EXPOSE 8080
+# Install composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-RUN composer install --no-dev --working-dir=/var/www/html
+RUN mkdir -p /var/www/.composer && chown apache /var/www/.composer
+
+# Install dependencies
+USER apache
+RUN COMPOSER_CACHE_DIR=/dev/null composer install --no-dev --working-dir=/var/www/html
+
+USER root
+
 VOLUME ["/var/lib/snipeit"]
 
-COPY docker/startup.sh docker/supervisord.conf /
-COPY docker/supervisor-exit-event-listener /usr/bin/supervisor-exit-event-listener
-RUN chmod +x /startup.sh /usr/bin/supervisor-exit-event-listener
+# Entrypoints
+COPY docker/entrypoint_alpine.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["/startup.sh"]
+ENTRYPOINT ["/sbin/tini", "--"]
+
+CMD ["/entrypoint.sh"]
+
+EXPOSE 8080
