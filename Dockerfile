@@ -55,10 +55,6 @@ RUN phpenmod bcmath
 RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/7.2/apache2/php.ini
 RUN sed -i 's/variables_order = .*/variables_order = "EGPCS"/' /etc/php/7.2/cli/php.ini
 
-RUN useradd -m --uid 1000 --gid 50 docker
-
-RUN echo export APACHE_RUN_USER=docker >> /etc/apache2/envvars
-RUN echo export APACHE_RUN_GROUP=staff >> /etc/apache2/envvars
 
 COPY docker/000-default.conf /etc/apache2/sites-enabled/000-default.conf
 RUN mkdir -p /var/lib/snipeit/ss
@@ -68,7 +64,7 @@ COPY . /var/www/html
 WORKDIR /var/www/html
 COPY docker/docker.env /var/www/html/.env
 
-RUN chown -R docker /var/www/html
+RUN chown -R www-data:www-data /var/www/html
 
 RUN \
       rm -r "/var/www/html/storage/private_uploads" && ln -fs "/var/lib/snipeit/data/private_uploads" "/var/www/html/storage/private_uploads" \
@@ -81,14 +77,11 @@ RUN \
       && echo "Finished setting up application in /var/www/html"
 
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
-
 RUN a2enmod rewrite
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-USER docker
-RUN composer install --no-dev --working-dir=/var/www/html
-USER root
 EXPOSE 8080
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN composer install --no-dev --working-dir=/var/www/html
 VOLUME ["/var/lib/snipeit"]
 
 COPY docker/startup.sh docker/supervisord.conf /
